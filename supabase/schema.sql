@@ -1,0 +1,57 @@
+-- Tables
+create table if not exists public.entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  body text not null default '',
+  mood text,
+  tags text[] not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.prayers (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  title text not null,
+  detail text not null default '',
+  status text not null default 'active' check (status in ('active', 'answered')),
+  created_at timestamptz not null default now(),
+  answered_at timestamptz
+);
+
+create table if not exists public.readings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  date date not null,
+  reference text not null,
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+
+-- Indexes
+create index if not exists entries_user_created_idx on public.entries (user_id, created_at desc);
+create index if not exists prayers_user_status_idx on public.prayers (user_id, status, created_at desc);
+create index if not exists readings_user_date_idx on public.readings (user_id, date desc);
+
+-- Row Level Security
+alter table public.entries enable row level security;
+alter table public.prayers enable row level security;
+alter table public.readings enable row level security;
+
+-- Policies: owner-only (drop first for idempotent re-runs)
+drop policy if exists "owner all entries" on public.entries;
+create policy "owner all entries" on public.entries
+  for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "owner all prayers" on public.prayers;
+create policy "owner all prayers" on public.prayers
+  for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "owner all readings" on public.readings;
+create policy "owner all readings" on public.readings
+  for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Table privileges: RLS policies alone are not enough; the role needs
+-- GRANTs too (tables created via SQL Editor get none by default).
+grant select, insert, update, delete on public.entries to authenticated;
+grant select, insert, update, delete on public.prayers to authenticated;
+grant select, insert, update, delete on public.readings to authenticated;

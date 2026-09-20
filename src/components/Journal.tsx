@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
 import { motion } from 'framer-motion'
+import { CalendarStrip } from './CalendarStrip'
 import { useEntries } from '../hooks/useEntries'
 import { calcStreak } from '../lib/streak'
 
@@ -24,6 +25,7 @@ export function Journal({ userId }: { userId: string }) {
   const [mood, setMood] = useState('')
   const [tagsInput, setTagsInput] = useState('')
   const [search, setSearch] = useState('')
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -36,16 +38,24 @@ export function Journal({ userId }: { userId: string }) {
     [entries],
   );
 
+  const entryDates = useMemo(
+    () => entries.map((e) => e.created_at.slice(0, 10)),
+    [entries],
+  );
+
   const filtered = useMemo(() => {
+    const byDate = selectedDate
+      ? entries.filter((e) => e.created_at.slice(0, 10) === selectedDate)
+      : entries
     const q = search.trim().toLowerCase()
-    if (!q) return entries
-    return entries.filter(
+    if (!q) return byDate
+    return byDate.filter(
       (e) =>
         e.body.toLowerCase().includes(q) ||
         (e.mood ?? '').toLowerCase().includes(q) ||
         e.tags.some((t) => t.toLowerCase().includes(q)),
     )
-  }, [entries, search])
+  }, [entries, search, selectedDate])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -81,9 +91,9 @@ export function Journal({ userId }: { userId: string }) {
     setEditingId(null)
   }
 
-  async function handleDelete(id: number, remoteId: string | undefined) {
+  async function handleDelete(id: number) {
     if (!window.confirm('Delete this entry?')) return
-    await deleteEntry(id, remoteId)
+    await deleteEntry(id)
   }
 
   return (
@@ -101,6 +111,25 @@ export function Journal({ userId }: { userId: string }) {
       {syncError && (
         <p className="rounded-lg border border-red-500/40 px-3 py-2 text-xs text-red-500">
           Sync failed: {syncError} (see console for details)
+        </p>
+      )}
+
+      <CalendarStrip
+        entryDates={entryDates}
+        selected={selectedDate}
+        onSelect={setSelectedDate}
+      />
+      {selectedDate && (
+        <p className="-mt-3 text-xs opacity-70">
+          Showing {format(new Date(`${selectedDate}T12:00:00`), 'EEEE, MMM d')}{' '}
+          ·{' '}
+          <button
+            type="button"
+            onClick={() => setSelectedDate(null)}
+            className="underline underline-offset-2"
+          >
+            Clear
+          </button>
         </p>
       )}
 
@@ -148,7 +177,9 @@ export function Journal({ userId }: { userId: string }) {
         <p className="py-8 text-center text-sm opacity-60">
           {entries.length === 0
             ? 'No entries yet — write your first one above.'
-            : 'No entries match your search.'}
+            : selectedDate
+              ? 'No entries on this day.'
+              : 'No entries match your search.'}
         </p>
       ) : (
         <div className="flex flex-col gap-4">
@@ -222,7 +253,7 @@ export function Journal({ userId }: { userId: string }) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(entry.id!, entry.remote_id)}
+                        onClick={() => handleDelete(entry.id!)}
                         className="underline underline-offset-2"
                       >
                         Delete

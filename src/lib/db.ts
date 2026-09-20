@@ -10,6 +10,8 @@ export interface JournalEntry {
   created_at: string
   updated_at: string
   dirty: number
+  /** 1 = deleted locally, pending remote purge. Never shown in UI. */
+  deleted: number
 }
 
 export interface Prayer {
@@ -23,6 +25,8 @@ export interface Prayer {
   answered_at?: string
   updated_at: string
   dirty: number
+  /** 1 = deleted locally, pending remote purge. Never shown in UI. */
+  deleted: number
 }
 
 export interface Reading {
@@ -35,6 +39,8 @@ export interface Reading {
   created_at: string
   updated_at: string
   dirty: number
+  /** 1 = deleted locally, pending remote purge. Never shown in UI. */
+  deleted: number
 }
 
 class HedraiosDB extends Dexie {
@@ -54,6 +60,15 @@ class HedraiosDB extends Dexie {
       entries: '++id, remote_id, user_id, created_at, updated_at, dirty',
       prayers: '++id, remote_id, user_id, status, created_at, dirty',
       readings: '++id, remote_id, user_id, date, dirty',
+    })
+    // v3 adds deleted flags for delete tombstones: deletes are recorded
+    // locally first and purged remotely on next sync (fixes offline-delete
+    // orphaning the remote row). Pre-v3 rows have deleted=undefined, which
+    // the UI treats as not deleted.
+    this.version(3).stores({
+      entries: '++id, remote_id, user_id, created_at, updated_at, dirty, deleted',
+      prayers: '++id, remote_id, user_id, status, created_at, dirty, deleted',
+      readings: '++id, remote_id, user_id, date, dirty, deleted',
     })
   }
 }

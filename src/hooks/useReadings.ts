@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { db } from "../lib/db";
 import type { Reading } from "../lib/db";
 import { syncReadings } from "../lib/sync";
-import { supabase } from "../lib/supabaseClient";
 
 function nowIso() {
   return new Date().toISOString();
@@ -24,6 +23,7 @@ export function useReadings(userId: string | undefined) {
     const rows = await db.readings
       .where("user_id")
       .equals(userId)
+      .and((r) => r.deleted !== 1)
       .reverse()
       .sortBy("created_at");
     rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -53,12 +53,21 @@ export function useReadings(userId: string | undefined) {
     };
   }, [userId, reloadLocal]);
 
-  async function runSync() {
+  const runSync = useCallback(async () => {
     if (!userId) return;
     const { ok, error } = await syncReadings(userId);
     setSyncError(ok ? null : error);
     if (ok) await reloadLocal();
-  }
+  }, [userId, reloadLocal]);
+
+  // Resync when the browser comes back online: catches up anything that
+  // changed (locally or remotely) while offline, without waiting for the
+  // user's next action.
+  useEffect(() => {
+    if (!userId) return;
+    window.addEventListener("online", runSync);
+    return () => window.removeEventListener("online", runSync);
+  }, [userId, runSync]);
 
   async function addReading(date: string, reference: string, notes: string) {
     if (!userId) return;
@@ -71,6 +80,7 @@ export function useReadings(userId: string | undefined) {
       created_at: stamp,
       updated_at: stamp,
       dirty: 1,
+      deleted: 0,
     });
     await reloadLocal();
     await runSync();
@@ -90,17 +100,14 @@ export function useReadings(userId: string | undefined) {
     await runSync();
   }
 
-  async function deleteReading(id: number, remoteId: string | undefined) {
+  async function deleteReading(id: number) {
     if (!userId) return;
-    if (remoteId) {
-      // Best effort: remove remotely when online; local delete always happens.
-      await supabase
-        .from("readings")
-        .delete()
-        .eq("id", remoteId)
-        .then(() => {});
-    }
-    await db.readings.delete(id);
+    // Tombstone: hidden immediately, purged remotely on next sync.
+    await db.readings.update(id, {
+      deleted: 1,
+      dirty: 1,
+      updated_at: nowIso(),
+    });
     await reloadLocal();
     await runSync();
   }

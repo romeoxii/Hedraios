@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { db } from "../lib/db";
 import type { Prayer } from "../lib/db";
 import { syncPrayers } from "../lib/sync";
-import { supabase } from "../lib/supabaseClient";
 
 function nowIso() {
   return new Date().toISOString();
@@ -24,6 +23,7 @@ export function usePrayers(userId: string | undefined) {
     const rows = await db.prayers
       .where("user_id")
       .equals(userId)
+      .and((p) => p.deleted !== 1)
       .reverse()
       .sortBy("created_at");
     setPrayers(rows);
@@ -52,12 +52,21 @@ export function usePrayers(userId: string | undefined) {
     };
   }, [userId, reloadLocal]);
 
-  async function runSync() {
+  const runSync = useCallback(async () => {
     if (!userId) return;
     const { ok, error } = await syncPrayers(userId);
     setSyncError(ok ? null : error);
     if (ok) await reloadLocal();
-  }
+  }, [userId, reloadLocal]);
+
+  // Resync when the browser comes back online: catches up anything that
+  // changed (locally or remotely) while offline, without waiting for the
+  // user's next action.
+  useEffect(() => {
+    if (!userId) return;
+    window.addEventListener("online", runSync);
+    return () => window.removeEventListener("online", runSync);
+  }, [userId, runSync]);
 
   async function addPrayer(title: string, detail: string) {
     if (!userId) return;
@@ -70,6 +79,7 @@ export function usePrayers(userId: string | undefined) {
       created_at: stamp,
       updated_at: stamp,
       dirty: 1,
+      deleted: 0,
     });
     await reloadLocal();
     await runSync();
@@ -87,13 +97,14 @@ export function usePrayers(userId: string | undefined) {
     await runSync();
   }
 
-  async function deletePrayer(id: number, remoteId: string | undefined) {
+  async function deletePrayer(id: number) {
     if (!userId) return;
-    if (remoteId) {
-      // Best effort: remove remotely when online; local delete always happens.
-      await supabase.from("prayers").delete().eq("id", remoteId).then(() => {});
-    }
-    await db.prayers.delete(id);
+    // Tombstone: hidden immediately, purged remotely on next sync.
+    await db.prayers.update(id, {
+      deleted: 1,
+      dirty: 1,
+      updated_at: nowIso(),
+    });
     await reloadLocal();
     await runSync();
   }

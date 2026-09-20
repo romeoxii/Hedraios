@@ -76,9 +76,9 @@ export function Readings({ userId }: { userId: string }) {
     setEditingId(null);
   }
 
-  async function handleDelete(id: number, remoteId: string | undefined) {
+  async function handleDelete(id: number) {
     if (!window.confirm("Delete this reading?")) return;
-    await deleteReading(id, remoteId);
+    await deleteReading(id);
   }
 
   return (
@@ -213,9 +213,7 @@ export function Readings({ userId }: { userId: string }) {
                             </button>
                             <button
                               type="button"
-                              onClick={() =>
-                                handleDelete(reading.id!, reading.remote_id)
-                              }
+                              onClick={() => handleDelete(reading.id!)}
                               className="underline underline-offset-2"
                             >
                               Delete

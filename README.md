@@ -55,11 +55,29 @@ npm run preview  # preview the production build
   `src/lib/auth*.tsx`, `src/hooks/useAuth.ts`).
 - **Offline-first**: every write goes to Dexie immediately (`dirty: 1`),
   then pushes to Supabase in the background; pulls merge remote rows while
-  local dirty rows win (`src/lib/sync.ts`, `src/hooks/use*`).
-- **Tabs**: Today (journal + search + streak), Prayers (active/answered),
+  local dirty rows win (`src/lib/sync.ts`, `src/hooks/use*`). Every hook
+  also resyncs on the browser `online` event, so reconnecting catches up
+  without waiting for your next tap.
+- **Conflict policy (deliberate: local-dirty-wins)**:
+  - Push-then-pull order per sync; a row with unsynced local changes is
+    never overwritten by remote state.
+  - Deletes are tombstones: hidden instantly, purged remotely on next sync
+    (works fully offline).
+  - Remote deletes propagate to other devices on pull — except rows with
+    unsynced local edits, which keep local state and re-upload instead.
+  - If an edited row was deleted remotely in the meantime, push detects
+    the update-miss (zero rows touched) and re-inserts it, so the offline
+    edit resurrects instead of vanishing.
+  - Guard rail: propagation only runs when the full remote set was fetched
+    (below the 500-row page limit), so pagination can never look like mass
+    deletion.
+- **Tabs**: Today (journal + search + streak + calendar strip), Prayers (active/answered),
   Readings (grouped by date) — `src/components/`.
 - Sync failures are never silent: console warning + red banner in the UI.
-- PWA icons live in `public/pwa-*.png` (rasterized from `favicon.svg`).
+- Deletes are tombstoned locally and purged remotely on next sync, so
+  offline deletes no longer orphan remote rows.
+- PWA icons live in `public/pwa-*.png` (rasterized from `favicon.svg`,
+  incl. a padded `maskable` variant).
 
 ## Project layout
 
@@ -77,6 +95,5 @@ src/App.tsx              # auth gate + header (online dot) + tab nav
 
 ## Known limitations
 
-- Deleting a synced entry while offline orphans its remote row (remote
-  delete is best-effort); it re-syncs cleanly once online for creates/updates.
-- PWA icons use `purpose: any` (no maskable variant yet).
+- Remote deletes from another device don't propagate (single-device sync
+  assumption); pull never resurrects local tombstones.

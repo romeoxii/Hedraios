@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { db } from '../lib/db'
 import type { JournalEntry } from '../lib/db'
 import { syncEntries } from '../lib/sync'
-import { supabase } from '../lib/supabaseClient'
 
 function nowIso() {
   return new Date().toISOString()
@@ -24,6 +23,7 @@ export function useEntries(userId: string | undefined) {
     const rows = await db.entries
       .where('user_id')
       .equals(userId)
+      .and((e) => e.deleted !== 1)
       .reverse()
       .sortBy('created_at')
     setEntries(rows)
@@ -52,6 +52,22 @@ export function useEntries(userId: string | undefined) {
     }
   }, [userId, reloadLocal])
 
+  const runSync = useCallback(async () => {
+    if (!userId) return
+    const { ok, error } = await syncEntries(userId)
+    setSyncError(ok ? null : error)
+    if (ok) await reloadLocal()
+  }, [userId, reloadLocal])
+
+  // Resync when the browser comes back online: catches up anything that
+  // changed (locally or remotely) while offline, without waiting for the
+  // user's next action.
+  useEffect(() => {
+    if (!userId) return
+    window.addEventListener('online', runSync)
+    return () => window.removeEventListener('online', runSync)
+  }, [userId, runSync])
+
   async function addEntry(body: string, mood: string | undefined, tags: string[]) {
     if (!userId) return
     const stamp = nowIso()
@@ -63,11 +79,10 @@ export function useEntries(userId: string | undefined) {
       created_at: stamp,
       updated_at: stamp,
       dirty: 1,
+      deleted: 0,
     })
     await reloadLocal()
-    const { ok, error } = await syncEntries(userId)
-    setSyncError(ok ? null : error)
-    if (ok) await reloadLocal()
+    await runSync()
   }
 
   async function updateEntry(
@@ -81,22 +96,20 @@ export function useEntries(userId: string | undefined) {
       dirty: 1,
     })
     await reloadLocal()
-    const { ok: updateOk, error: updateError } = await syncEntries(userId)
-    setSyncError(updateOk ? null : updateError)
-    if (updateOk) await reloadLocal()
+    await runSync()
   }
 
-  async function deleteEntry(id: number, remoteId: string | undefined) {
+  async function deleteEntry(id: number) {
     if (!userId) return
-    if (remoteId) {
-      // Best effort: remove remotely when online; local delete always happens.
-      await supabase.from('entries').delete().eq('id', remoteId).then(() => {})
-    }
-    await db.entries.delete(id)
+    // Tombstone: hidden immediately, purged remotely on next sync.
+    // Works fully offline — no more orphaned remote rows.
+    await db.entries.update(id, {
+      deleted: 1,
+      dirty: 1,
+      updated_at: nowIso(),
+    })
     await reloadLocal()
-    const { ok: deleteOk, error: deleteError } = await syncEntries(userId)
-    setSyncError(deleteOk ? null : deleteError)
-    if (deleteOk) await reloadLocal()
+    await runSync()
   }
 
   return { entries, loading: userId ? loading : false, syncing, syncError, addEntry, updateEntry, deleteEntry }

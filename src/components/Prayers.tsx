@@ -42,9 +42,9 @@ export function Prayers({ userId }: { userId: string }) {
     setSaving(false);
   }
 
-  async function handleDelete(id: number, remoteId: string | undefined) {
+  async function handleDelete(id: number) {
     if (!window.confirm("Delete this prayer?")) return;
-    await deletePrayer(id, remoteId);
+    await deletePrayer(id);
   }
 
   return (
@@ -140,7 +140,7 @@ export function Prayers({ userId }: { userId: string }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(prayer.id!, prayer.remote_id)}
+                    onClick={() => handleDelete(prayer.id!)}
                     className="underline underline-offset-2"
                   >
                     Delete

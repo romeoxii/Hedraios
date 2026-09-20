@@ -4,10 +4,25 @@ import { supabase } from "../lib/supabaseClient";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
+/** Surface auth errors Supabase appends to the redirect URL (e.g. expired
+ *  or already-used magic links) instead of failing silently. */
+function initialUrlError(): string {
+  try {
+    const params = new URLSearchParams(
+      window.location.hash.replace(/^#/, ""),
+    );
+    const raw = params.get("error_description") ?? params.get("error") ?? "";
+    return raw ? decodeURIComponent(raw.replace(/\+/g, " ")) : "";
+  } catch {
+    return "";
+  }
+}
+
 export function AuthGate() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
+  const [urlError] = useState(initialUrlError);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -32,6 +47,11 @@ export function AuthGate() {
       <p className="mt-2 text-sm opacity-70">
         Daily documentation + faith tracking. Sign in with a magic link.
       </p>
+      {urlError && (
+        <p className="mt-4 rounded-lg border border-red-500/40 px-3 py-2 text-xs text-red-500">
+          Sign-in link didn&apos;t work ({urlError}). Request a fresh one below.
+        </p>
+      )}
       {status === "sent" ? (
         <p className="mt-6 rounded-lg border p-4 text-sm">
           Check your inbox — a sign-in link is on its way to{" "}

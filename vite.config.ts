@@ -5,6 +5,23 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep the main chunk lean for mobile PWA loads; vendor libs change
+        // rarely and cache independently via the service worker precache.
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('@supabase')) return 'supabase'
+          if (id.includes('dexie')) return 'dexie'
+          if (id.includes('framer-motion')) return 'motion'
+          if (id.includes('date-fns')) return 'dates'
+          if (id.includes('react')) return 'react'
+          return 'vendor'
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

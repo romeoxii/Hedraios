@@ -52,7 +52,12 @@ npm run preview  # preview the production build
 ## How it works
 
 - **Auth day-1**: magic-link gate (`src/components/AuthGate.tsx`,
-  `src/lib/auth*.tsx`, `src/hooks/useAuth.ts`).
+  `src/lib/auth*.tsx`, `src/hooks/useAuth.ts`). Expired/used links show
+  the redirect error instead of failing silently.
+- Render crashes are caught by `ErrorBoundary` (`main.tsx`) with a
+  try-again/reload fallback; data stays safe in Dexie + Supabase.
+- Vendor libs are code-split (react/supabase/dexie/motion/dates) so the
+  main chunk stays small and caches independently in the PWA precache.
 - **Offline-first**: every write goes to Dexie immediately (`dirty: 1`),
   then pushes to Supabase in the background; pulls merge remote rows while
   local dirty rows win (`src/lib/sync.ts`, `src/hooks/use*`). Every hook

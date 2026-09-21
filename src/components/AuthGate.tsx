@@ -13,7 +13,7 @@ function maskEmail(email: string): string {
     return `${head}•••@${domain}`;
 }
 
-export function AuthGate() {
+export function AuthGate({ onBack }: { onBack?: () => void }) {
     const [email, setEmail] = useState("");
     const [status, setStatus] = useState<Status>("idle");
     const [error, setError] = useState("");
@@ -129,6 +129,16 @@ export function AuthGate() {
             </div>
 
             <div className="mx-auto flex w-full max-w-[26rem] flex-1 flex-col justify-center pb-16 text-center">
+                {onBack && (
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className="link-btn self-start"
+                        style={{ fontSize: "0.875rem" }}
+                    >
+                        ‹ back
+                    </button>
+                )}
                 {status === "error" && error && (
                     <p className="alert-error mb-5 mt-5 text-left">{error}</p>
                 )}

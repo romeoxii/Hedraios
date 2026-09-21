@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { AuthGate } from "./components/AuthGate";
+import { Homepage } from "./components/Homepage";
 import { Notes } from "./components/Notes";
 import { Prayers } from "./components/Prayers";
 import { ReaderRoute } from "./components/ReaderRoute";
@@ -101,6 +103,7 @@ function Shell() {
     const online = useOnline();
     const [exporting, setExporting] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [authOpen, setAuthOpen] = useState(false);
 
     async function handleExport() {
         if (!user || exporting) return;
@@ -142,7 +145,11 @@ function Shell() {
     }
 
     if (!user) {
-        return <AuthGate />;
+        return authOpen ? (
+            <AuthGate onBack={() => setAuthOpen(false)} />
+        ) : (
+            <Homepage onOpen={() => setAuthOpen(true)} />
+        );
     }
 
     return (
@@ -248,14 +255,7 @@ function Shell() {
                 ))}
             </nav>
             <main className="app-main flex flex-1 flex-col">
-                <Routes>
-                    <Route path="/" element={<Timeline userId={user.id} />} />
-                    <Route path="/notes" element={<Notes userId={user.id} />} />
-                    <Route path="/prayers" element={<Prayers userId={user.id} />} />
-                    <Route path="/readings" element={<Readings userId={user.id} />} />
-                    <Route path="/read/:kind/:id" element={<ReaderRoute />} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
+                <AnimatedRoutes userId={user.id} />
             </main>
             <Toaster />
             <footer className="app-footer meta">Hedraios · your data stays yours</footer>
@@ -360,12 +360,47 @@ function BootScreen() {
     );
 }
 
+function AnimatedRoutes({ userId }: { userId: string }) {
+    const location = useLocation();
+
+    // Fresh top on every page. Instant jump, never smooth-scroll fighting
+    // the enter animation.
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [location.pathname]);
+
+    return (
+        <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="flex flex-1 flex-col"
+            >
+                <Routes location={location}>
+                    <Route path="/" element={<Timeline userId={userId} />} />
+                    <Route path="/notes" element={<Notes userId={userId} />} />
+                    <Route path="/prayers" element={<Prayers userId={userId} />} />
+                    <Route path="/readings" element={<Readings userId={userId} />} />
+                    <Route path="/read/:kind/:id" element={<ReaderRoute />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </motion.div>
+        </AnimatePresence>
+    );
+}
+
 function App() {
     return (
         <BrowserRouter>
             <AuthProvider>
-                <BootScreen />
-                <Shell />
+                {/* Reduced-motion users get instant page swaps, no slides. */}
+                <MotionConfig reducedMotion="user">
+                    <BootScreen />
+                    <Shell />
+                </MotionConfig>
             </AuthProvider>
         </BrowserRouter>
     );

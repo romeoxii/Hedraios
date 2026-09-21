@@ -1,13 +1,79 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>hedraios</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link
+            rel="apple-touch-startup-image"
+            media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+            href="/splash-1290x2796.png"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)"
+            href="/splash-1179x2556.png"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"
+            href="/splash-1125x2436.png"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)"
+            href="/splash-1242x2688.png"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+            href="/splash-750x1334.png"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)"
+            href="/splash-1536x2048.png"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2)"
+            href="/splash-1668x2388.png"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)"
+            href="/splash-2048x2732.png"
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="description"
+            content="Hedraios — daily documentation and faith tracking: journal, prayers, and scripture readings, offline-first."
+        />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Hedraios" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500&display=swap"
+            rel="stylesheet"
+        />
+        <script>
+            // Picks light or dark before anything shows, so no white flash.
+            try {
+                var t = localStorage.getItem("hedraios-theme");
+                if (t !== "light" && t !== "dark") {
+                    t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                }
+                document.documentElement.dataset.theme = t;
+            } catch (e) {}
+        </script>
+        <title>Hedraios</title>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/main.tsx"></script>
+    </body>
 </html>

@@ -37,7 +37,7 @@ alter table public.entries enable row level security;
 alter table public.prayers enable row level security;
 alter table public.readings enable row level security;
 
--- Policies: owner-only (drop first for idempotent re-runs)
+-- Only owners touch their rows. Old rules drop first so this runs twice clean.
 drop policy if exists "owner all entries" on public.entries;
 create policy "owner all entries" on public.entries
   for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -50,8 +50,7 @@ drop policy if exists "owner all readings" on public.readings;
 create policy "owner all readings" on public.readings
   for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- Table privileges: RLS policies alone are not enough; the role needs
--- GRANTs too (tables created via SQL Editor get none by default).
+-- Rules alone don't open the tables; access gets granted here too.
 grant select, insert, update, delete on public.entries to authenticated;
 grant select, insert, update, delete on public.prayers to authenticated;
 grant select, insert, update, delete on public.readings to authenticated;

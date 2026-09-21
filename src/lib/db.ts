@@ -1,76 +1,74 @@
-import Dexie, { type EntityTable } from 'dexie'
+import Dexie, { type EntityTable } from "dexie";
 
 export interface JournalEntry {
-  id?: number
-  remote_id?: string
-  user_id: string
-  body: string
-  mood?: string
-  tags: string[]
-  created_at: string
-  updated_at: string
-  dirty: number
-  /** 1 = deleted locally, pending remote purge. Never shown in UI. */
-  deleted: number
+    id?: number;
+    remote_id?: string;
+    user_id: string;
+    body: string;
+    mood?: string;
+    tags: string[];
+    created_at: string;
+    updated_at: string;
+    dirty: number;
+    /** 1 = deleted on this phone, still needs deleting online. Hidden everywhere. */
+    deleted: number;
 }
 
 export interface Prayer {
-  id?: number
-  remote_id?: string
-  user_id: string
-  title: string
-  detail: string
-  status: 'active' | 'answered'
-  created_at: string
-  answered_at?: string
-  updated_at: string
-  dirty: number
-  /** 1 = deleted locally, pending remote purge. Never shown in UI. */
-  deleted: number
+    id?: number;
+    remote_id?: string;
+    user_id: string;
+    title: string;
+    detail: string;
+    status: "active" | "answered";
+    created_at: string;
+    answered_at?: string;
+    updated_at: string;
+    dirty: number;
+    /** 1 = deleted on this phone, still needs deleting online. Hidden everywhere. */
+    deleted: number;
 }
 
 export interface Reading {
-  id?: number
-  remote_id?: string
-  user_id: string
-  date: string
-  reference: string
-  notes: string
-  created_at: string
-  updated_at: string
-  dirty: number
-  /** 1 = deleted locally, pending remote purge. Never shown in UI. */
-  deleted: number
+    id?: number;
+    remote_id?: string;
+    user_id: string;
+    date: string;
+    reference: string;
+    notes: string;
+    created_at: string;
+    updated_at: string;
+    dirty: number;
+    /** 1 = deleted on this phone, still needs deleting online. Hidden everywhere. */
+    deleted: number;
 }
 
 class HedraiosDB extends Dexie {
-  entries!: EntityTable<JournalEntry, 'id'>
-  prayers!: EntityTable<Prayer, 'id'>
-  readings!: EntityTable<Reading, 'id'>
+    entries!: EntityTable<JournalEntry, "id">;
+    prayers!: EntityTable<Prayer, "id">;
+    readings!: EntityTable<Reading, "id">;
 
-  constructor() {
-    super('hedraios')
-    this.version(1).stores({
-      entries: '++id, user_id, created_at, updated_at, dirty',
-      prayers: '++id, user_id, status, created_at, dirty',
-      readings: '++id, user_id, date, dirty',
-    })
-    // v2 adds remote_id indexes so sync can look up rows by Supabase id.
-    this.version(2).stores({
-      entries: '++id, remote_id, user_id, created_at, updated_at, dirty',
-      prayers: '++id, remote_id, user_id, status, created_at, dirty',
-      readings: '++id, remote_id, user_id, date, dirty',
-    })
-    // v3 adds deleted flags for delete tombstones: deletes are recorded
-    // locally first and purged remotely on next sync (fixes offline-delete
-    // orphaning the remote row). Pre-v3 rows have deleted=undefined, which
-    // the UI treats as not deleted.
-    this.version(3).stores({
-      entries: '++id, remote_id, user_id, created_at, updated_at, dirty, deleted',
-      prayers: '++id, remote_id, user_id, status, created_at, dirty, deleted',
-      readings: '++id, remote_id, user_id, date, dirty, deleted',
-    })
-  }
+    constructor() {
+        super("hedraios");
+        this.version(1).stores({
+            entries: "++id, user_id, created_at, updated_at, dirty",
+            prayers: "++id, user_id, status, created_at, dirty",
+            readings: "++id, user_id, date, dirty",
+        });
+        // v2 links phone rows to online rows.
+        this.version(2).stores({
+            entries: "++id, remote_id, user_id, created_at, updated_at, dirty",
+            prayers: "++id, remote_id, user_id, status, created_at, dirty",
+            readings: "++id, remote_id, user_id, date, dirty",
+        });
+        // v3 remembers deletes on the phone so they get removed online later.
+        // Old rows without the flag count as not deleted.
+        this.version(3).stores({
+            entries: "++id, remote_id, user_id, created_at, updated_at, dirty, deleted",
+            prayers: "++id, remote_id, user_id, status, created_at, dirty, deleted",
+            readings: "++id, remote_id, user_id, date, dirty, deleted",
+        });
+    }
 }
 
-export const db = new HedraiosDB()
+export const db = new HedraiosDB();

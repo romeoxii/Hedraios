@@ -5,8 +5,11 @@ import { motion } from "framer-motion";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DatePicker } from "./DatePicker";
 import { Preview } from "./Preview";
+import { AutoTextarea } from "./AutoTextarea";
+import { ImageAttachments } from "./ImageAttachments";
 import { useReadings } from "../hooks/useReadings";
 import { toast } from "../lib/toast";
+import { deleteEntryImage, MAX_IMAGES_PER_ENTRY, uploadEntryImage } from "../lib/images";
 
 function todayIso() {
     const d = new Date();
@@ -28,11 +31,14 @@ export function Readings({ userId }: { userId: string }) {
     const [reference, setReference] = useState("");
     const [notes, setNotes] = useState("");
     const [saving, setSaving] = useState(false);
+    const [images, setImages] = useState<string[]>([]);
+    const [uploading, setUploading] = useState(false);
 
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editDate, setEditDate] = useState("");
     const [editReference, setEditReference] = useState("");
     const [editNotes, setEditNotes] = useState("");
+    const [editImages, setEditImages] = useState<string[]>([]);
     const [pendingDelete, setPendingDelete] = useState<number | null>(null);
 
     const groups = useMemo(() => {
@@ -45,23 +51,90 @@ export function Readings({ userId }: { userId: string }) {
         return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
     }, [readings]);
 
+    async function uploadFiles(list: FileList, scope: "new" | "edit", readingId?: number) {
+        const files = [...list].filter((f) => f.type.startsWith("image/"));
+        const current = scope === "new" ? images : editImages;
+        const room = MAX_IMAGES_PER_ENTRY - current.length;
+        if (files.length === 0 || room <= 0) {
+            if (room <= 0) toast(`Max ${MAX_IMAGES_PER_ENTRY} images per reading`);
+            return;
+        }
+        if (!navigator.onLine) {
+            toast("You're offline — images need a connection");
+            return;
+        }
+        const owner =
+            scope === "edit"
+                ? (readings.find((r) => r.id === readingId)?.remote_id ?? `local-${readingId}`)
+                : `pending-${Date.now()}`;
+        setUploading(true);
+        try {
+            const urls: string[] = [];
+            for (const file of files.slice(0, room)) {
+                urls.push(await uploadEntryImage(userId, "reading", owner, file));
+            }
+            if (scope === "new") {
+                setImages((prev) => [...prev, ...urls]);
+            } else if (readingId != null) {
+                const next = [...current, ...urls];
+                setEditImages(next);
+                const fallback = readings.find((r) => r.id === readingId);
+                await updateReading(readingId, {
+                    date: (editDate || fallback?.date) ?? "",
+                    reference: (editReference.trim() || fallback?.reference) ?? "",
+                    notes: editNotes.trim(),
+                    image_urls: next,
+                });
+            }
+        } catch (err) {
+            toast(err instanceof Error ? err.message : "Image upload failed");
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    async function removeImage(url: string, scope: "new" | "edit", readingId?: number) {
+        if (scope === "new") {
+            setImages((prev) => prev.filter((u) => u !== url));
+        } else if (readingId != null) {
+            const next = editImages.filter((u) => u !== url);
+            setEditImages(next);
+            const fallback = readings.find((r) => r.id === readingId);
+            await updateReading(readingId, {
+                date: (editDate || fallback?.date) ?? "",
+                reference: (editReference.trim() || fallback?.reference) ?? "",
+                notes: editNotes.trim(),
+                image_urls: next,
+            });
+        }
+        await deleteEntryImage(url);
+    }
+
     async function handleSubmit(e: FormEvent) {
         e.preventDefault();
         const ref = reference.trim();
         if (!ref || !date || saving) return;
         setSaving(true);
-        await addReading(date, ref, notes.trim());
+        await addReading(date, ref, notes.trim(), images);
         setReference("");
         setNotes("");
+        setImages([]);
         setSaving(false);
         toast("Reading logged");
     }
 
-    function startEdit(id: number, d: string, ref: string, n: string) {
+    function startEdit(
+        id: number,
+        d: string,
+        ref: string,
+        n: string,
+        image_urls: string[] = [],
+    ) {
         setEditingId(id);
         setEditDate(d);
         setEditReference(ref);
         setEditNotes(n);
+        setEditImages(image_urls);
     }
 
     async function handleEditSave(id: number) {
@@ -71,6 +144,7 @@ export function Readings({ userId }: { userId: string }) {
             date: editDate,
             reference: ref,
             notes: editNotes.trim(),
+            image_urls: editImages,
         });
         setEditingId(null);
         toast("Reading updated");
@@ -101,21 +175,28 @@ export function Readings({ userId }: { userId: string }) {
             <form onSubmit={handleSubmit} className="card flex flex-col gap-2">
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
                     <DatePicker value={date} onChange={setDate} label="Reading date" />
-                    <input
+                    <AutoTextarea
+                        rows={2}
                         value={reference}
                         onChange={(e) => setReference(e.target.value)}
                         placeholder="Reference — e.g. John 1:1-5"
                         aria-label="Scripture reference"
-                        className="field min-w-0 flex-1"
+                        className="field field--small min-w-0 flex-1"
                     />
                 </div>
-                <textarea
-                    rows={2}
+                <AutoTextarea
+                    rows={5}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Notes (optional)"
                     aria-label="Reading notes"
-                    className="field"
+                    className="field field--medium"
+                />
+                <ImageAttachments
+                    urls={images}
+                    uploading={uploading}
+                    onSelect={(files) => uploadFiles(files, "new")}
+                    onRemove={(url) => removeImage(url, "new")}
                 />
                 <button
                     type="submit"
@@ -129,7 +210,7 @@ export function Readings({ userId }: { userId: string }) {
             {loading ? (
                 <p className="meta py-8 text-center">Loading readings…</p>
             ) : groups.length === 0 ? (
-                <p className="meta py-8 text-center">No readings yet — log your first one above.</p>
+                <p className="meta py-8 text-center">No readings yet. Log your first one above.</p>
             ) : (
                 <div className="flex flex-col gap-5">
                     {groups.map(([groupDate, items]) => (
@@ -160,25 +241,34 @@ export function Readings({ userId }: { userId: string }) {
                                                         onChange={setEditDate}
                                                         label="Reading date"
                                                     />
-                                                    <input
+                                                    <AutoTextarea
+                                                        rows={2}
                                                         value={editReference}
                                                         onChange={(e) =>
                                                             setEditReference(e.target.value)
                                                         }
                                                         placeholder="Reference"
                                                         aria-label="Scripture reference"
-                                                        className="field flex-1"
-                                                        style={{ fontSize: "0.875rem" }}
+                                                        className="field field--small flex-1"
                                                     />
                                                 </div>
-                                                <textarea
-                                                    rows={2}
+                                                <AutoTextarea
+                                                    rows={5}
                                                     value={editNotes}
                                                     onChange={(e) => setEditNotes(e.target.value)}
                                                     placeholder="Notes"
                                                     aria-label="Reading notes"
-                                                    className="field"
-                                                    style={{ fontSize: "0.875rem" }}
+                                                    className="field field--medium"
+                                                />
+                                                <ImageAttachments
+                                                    urls={editImages}
+                                                    uploading={uploading}
+                                                    onSelect={(files) =>
+                                                        uploadFiles(files, "edit", reading.id)
+                                                    }
+                                                    onRemove={(url) =>
+                                                        removeImage(url, "edit", reading.id)
+                                                    }
                                                 />
                                                 <div className="flex gap-2">
                                                     <button
@@ -214,6 +304,7 @@ export function Readings({ userId }: { userId: string }) {
                                                                     reading.date,
                                                                     reading.reference,
                                                                     reading.notes,
+                                                                    reading.image_urls ?? [],
                                                                 )
                                                             }
                                                             className="link-btn link-btn--edit"
@@ -250,6 +341,22 @@ export function Readings({ userId }: { userId: string }) {
                                                         />
                                                     </div>
                                                 )}
+                                                {(reading.image_urls ?? []).length > 0 && (
+                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                        {(reading.image_urls ?? []).map((url) => (
+                                                            <img
+                                                                key={url}
+                                                                src={url}
+                                                                alt="Reading attachment"
+                                                                loading="lazy"
+                                                                className="h-[72px] w-[72px] rounded-xl object-cover"
+                                                                style={{
+                                                                    border: "1px solid var(--border)",
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </>
                                         )}
                                     </motion.article>
@@ -262,7 +369,7 @@ export function Readings({ userId }: { userId: string }) {
             <ConfirmDialog
                 open={pendingDelete !== null}
                 title="Delete this reading?"
-                message="The reading will be removed here and in Supabase on next sync. This can't be undone."
+                message="Reading will be permanently deleted. This can't be undone."
                 onCancel={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}
             />

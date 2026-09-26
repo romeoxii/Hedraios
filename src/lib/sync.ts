@@ -8,6 +8,7 @@ interface EntryRow {
     body: string;
     mood: string | null;
     tags: string[];
+    image_urls: string[];
     created_at: string;
 }
 
@@ -26,6 +27,7 @@ async function insertEntryRemote(
             body: entry.body,
             mood: entry.mood ?? null,
             tags: entry.tags,
+            image_urls: entry.image_urls ?? [],
         })
         .select("id, created_at")
         .single();
@@ -68,6 +70,7 @@ export async function pushEntries(userId: string): Promise<void> {
                     body: entry.body,
                     mood: entry.mood ?? null,
                     tags: entry.tags,
+                    image_urls: entry.image_urls ?? [],
                 })
                 .eq("id", entry.remote_id)
                 .select("id");
@@ -104,7 +107,7 @@ export async function pushEntries(userId: string): Promise<void> {
 export async function pullEntries(userId: string): Promise<void> {
     const { data, error } = await supabase
         .from("entries")
-        .select("id, user_id, body, mood, tags, created_at")
+        .select("id, user_id, body, mood, tags, image_urls, created_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(500);
@@ -120,6 +123,7 @@ export async function pullEntries(userId: string): Promise<void> {
                 body: row.body,
                 mood: row.mood ?? undefined,
                 tags: row.tags ?? [],
+                image_urls: row.image_urls ?? [],
                 created_at: row.created_at,
                 updated_at: nowIso(),
             });
@@ -130,6 +134,7 @@ export async function pullEntries(userId: string): Promise<void> {
                 body: row.body,
                 mood: row.mood ?? undefined,
                 tags: row.tags ?? [],
+                image_urls: row.image_urls ?? [],
                 created_at: row.created_at,
                 updated_at: nowIso(),
                 dirty: 0,
@@ -405,6 +410,7 @@ interface ReadingRow {
     date: string;
     reference: string;
     notes: string;
+    image_urls: string[];
     created_at: string;
 }
 
@@ -419,6 +425,7 @@ async function insertReadingRemote(
             date: reading.date,
             reference: reading.reference,
             notes: reading.notes,
+            image_urls: reading.image_urls ?? [],
         })
         .select("id, created_at")
         .single();
@@ -461,6 +468,7 @@ export async function pushReadings(userId: string): Promise<void> {
                     date: reading.date,
                     reference: reading.reference,
                     notes: reading.notes,
+                    image_urls: reading.image_urls ?? [],
                 })
                 .eq("id", reading.remote_id)
                 .select("id");
@@ -497,7 +505,7 @@ export async function pushReadings(userId: string): Promise<void> {
 export async function pullReadings(userId: string): Promise<void> {
     const { data, error } = await supabase
         .from("readings")
-        .select("id, user_id, date, reference, notes, created_at")
+        .select("id, user_id, date, reference, notes, image_urls, created_at")
         .eq("user_id", userId)
         .order("date", { ascending: false })
         .order("created_at", { ascending: false })
@@ -514,6 +522,7 @@ export async function pullReadings(userId: string): Promise<void> {
                 date: row.date,
                 reference: row.reference,
                 notes: row.notes,
+                image_urls: row.image_urls ?? [],
                 created_at: row.created_at,
                 updated_at: nowIso(),
             });
@@ -524,6 +533,7 @@ export async function pullReadings(userId: string): Promise<void> {
                 date: row.date,
                 reference: row.reference,
                 notes: row.notes,
+                image_urls: row.image_urls ?? [],
                 created_at: row.created_at,
                 updated_at: nowIso(),
                 dirty: 0,

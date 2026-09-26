@@ -71,7 +71,12 @@ export function useReadings(userId: string | undefined) {
         return () => window.removeEventListener("online", handleOnline);
     }, [userId, runSync]);
 
-    async function addReading(date: string, reference: string, notes: string) {
+    async function addReading(
+        date: string,
+        reference: string,
+        notes: string,
+        image_urls: string[] = [],
+    ) {
         if (!userId) return;
         const stamp = nowIso();
         await db.readings.add({
@@ -79,6 +84,7 @@ export function useReadings(userId: string | undefined) {
             date,
             reference,
             notes,
+            image_urls,
             created_at: stamp,
             updated_at: stamp,
             dirty: 1,
@@ -90,7 +96,7 @@ export function useReadings(userId: string | undefined) {
 
     async function updateReading(
         id: number,
-        patch: { date: string; reference: string; notes: string },
+        patch: { date: string; reference: string; notes: string; image_urls?: string[] },
     ) {
         if (!userId) return;
         await db.readings.update(id, {

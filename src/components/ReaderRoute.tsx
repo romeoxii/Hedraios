@@ -51,6 +51,7 @@ export function ReaderRoute() {
             dateLabel={model.dateLabel}
             body={model.body}
             tags={model.tags}
+            images={model.images ?? []}
         />
     );
 }

@@ -4,8 +4,11 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Preview } from "./Preview";
+import { AutoTextarea } from "./AutoTextarea";
+import { ImageAttachments } from "./ImageAttachments";
 import { useEntries } from "../hooks/useEntries";
 import { toast } from "../lib/toast";
+import { deleteEntryImage, MAX_IMAGES_PER_ENTRY, uploadEntryImage } from "../lib/images";
 
 function parseTags(input: string): string[] {
     const seen = new Set<string>();
@@ -36,11 +39,14 @@ export function Notes({ userId }: { userId: string }) {
     const [tagsInput, setTagsInput] = useState("");
     const [search, setSearch] = useState("");
     const [saving, setSaving] = useState(false);
+    const [images, setImages] = useState<string[]>([]);
+    const [uploading, setUploading] = useState(false);
 
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editBody, setEditBody] = useState("");
     const [editMood, setEditMood] = useState("");
     const [editTags, setEditTags] = useState("");
+    const [editImages, setEditImages] = useState<string[]>([]);
     const [pendingDelete, setPendingDelete] = useState<number | null>(null);
 
     const filtered = useMemo(() => {
@@ -54,24 +60,96 @@ export function Notes({ userId }: { userId: string }) {
         );
     }, [entries, search]);
 
+    async function uploadFiles(list: FileList, scope: "new" | "edit", entryId?: number) {
+        const files = [...list].filter((f) => f.type.startsWith("image/"));
+        const current = scope === "new" ? images : editImages;
+        const room = MAX_IMAGES_PER_ENTRY - current.length;
+        if (files.length === 0 || room <= 0) {
+            if (room <= 0) toast(`Max ${MAX_IMAGES_PER_ENTRY} images per note`);
+            return;
+        }
+        if (!navigator.onLine) {
+            toast("You're offline — images need a connection");
+            return;
+        }
+        const owner =
+            scope === "edit"
+                ? (entries.find((e) => e.id === entryId)?.remote_id ?? `local-${entryId}`)
+                : `pending-${Date.now()}`;
+        setUploading(true);
+        try {
+            const urls: string[] = [];
+            for (const file of files.slice(0, room)) {
+                urls.push(await uploadEntryImage(userId, "entry", owner, file));
+            }
+            if (scope === "new") {
+                setImages((prev) => [...prev, ...urls]);
+            } else if (entryId != null) {
+                const next = [...current, ...urls];
+                setEditImages(next);
+                const fallback = entries.find((e) => e.id === entryId);
+                await updateEntry(entryId, {
+                    body: (editBody.trim() || fallback?.body) ?? "",
+                    mood: editMood.trim() ? editMood.trim() : fallback?.mood,
+                    tags: parseTags(editTags),
+                    image_urls: next,
+                });
+            }
+        } catch (err) {
+            toast(err instanceof Error ? err.message : "Image upload failed");
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    async function removeImage(url: string, scope: "new" | "edit", entryId?: number) {
+        if (scope === "new") {
+            setImages((prev) => prev.filter((u) => u !== url));
+        } else if (entryId != null) {
+            const next = editImages.filter((u) => u !== url);
+            setEditImages(next);
+            const fallback = entries.find((e) => e.id === entryId);
+            await updateEntry(entryId, {
+                body: (editBody.trim() || fallback?.body) ?? "",
+                mood: editMood.trim() ? editMood.trim() : fallback?.mood,
+                tags: parseTags(editTags),
+                image_urls: next,
+            });
+        }
+        await deleteEntryImage(url);
+    }
+
     async function handleSubmit(e: FormEvent) {
         e.preventDefault();
         const trimmed = body.trim();
         if (!trimmed || saving) return;
         setSaving(true);
-        await addEntry(trimmed, mood.trim() ? mood.trim() : undefined, parseTags(tagsInput));
+        await addEntry(
+            trimmed,
+            mood.trim() ? mood.trim() : undefined,
+            parseTags(tagsInput),
+            images,
+        );
         setBody("");
         setMood("");
         setTagsInput("");
+        setImages([]);
         setSaving(false);
         toast("Entry saved");
     }
 
-    function startEdit(id: number, body: string, mood: string | undefined, tags: string[]) {
+    function startEdit(
+        id: number,
+        body: string,
+        mood: string | undefined,
+        tags: string[],
+        image_urls: string[] = [],
+    ) {
         setEditingId(id);
         setEditBody(body);
         setEditMood(mood ?? "");
         setEditTags(tags.join(", "));
+        setEditImages(image_urls);
     }
 
     async function handleEditSave(id: number) {
@@ -81,6 +159,7 @@ export function Notes({ userId }: { userId: string }) {
             body: trimmed,
             mood: editMood.trim() ? editMood.trim() : undefined,
             tags: parseTags(editTags),
+            image_urls: editImages,
         });
         setEditingId(null);
         toast("Entry updated");
@@ -117,12 +196,12 @@ export function Notes({ userId }: { userId: string }) {
             />
 
             <form onSubmit={handleSubmit} className="card flex flex-col gap-3">
-                <textarea
-                    rows={3}
+                <AutoTextarea
+                    rows={6}
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     placeholder="What's on your heart today?"
-                    className="field"
+                    className="field field--large"
                     style={{
                         border: "none",
                         background: "transparent",
@@ -154,6 +233,12 @@ export function Notes({ userId }: { userId: string }) {
                         {saving ? "Saving…" : "Add"}
                     </button>
                 </div>
+                <ImageAttachments
+                    urls={images}
+                    uploading={uploading}
+                    onSelect={(files) => uploadFiles(files, "new")}
+                    onRemove={(url) => removeImage(url, "new")}
+                />
             </form>
 
             {loading ? (
@@ -175,12 +260,11 @@ export function Notes({ userId }: { userId: string }) {
                         >
                             {editingId === entry.id ? (
                                 <div className="flex flex-col gap-2">
-                                    <textarea
-                                        rows={3}
+                                    <AutoTextarea
+                                        rows={6}
                                         value={editBody}
                                         onChange={(e) => setEditBody(e.target.value)}
-                                        className="field"
-                                        style={{ fontSize: "0.9375rem" }}
+                                        className="field field--large"
                                     />
                                     <div className="flex gap-2">
                                         <input
@@ -200,6 +284,12 @@ export function Notes({ userId }: { userId: string }) {
                                             style={{ fontSize: "0.875rem" }}
                                         />
                                     </div>
+                                    <ImageAttachments
+                                        urls={editImages}
+                                        uploading={uploading}
+                                        onSelect={(files) => uploadFiles(files, "edit", entry.id)}
+                                        onRemove={(url) => removeImage(url, "edit", entry.id)}
+                                    />
                                     <div className="flex gap-2">
                                         <button
                                             type="button"
@@ -233,6 +323,7 @@ export function Notes({ userId }: { userId: string }) {
                                                         entry.body,
                                                         entry.mood,
                                                         entry.tags,
+                                                        entry.image_urls ?? [],
                                                     )
                                                 }
                                                 className="link-btn link-btn--edit"
@@ -265,6 +356,22 @@ export function Notes({ userId }: { userId: string }) {
                                     <div className="mt-1">
                                         <Preview text={entry.body} to={`/read/entry/${entry.id}`} />
                                     </div>
+                                    {(entry.image_urls ?? []).length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {(entry.image_urls ?? []).map((url) => (
+                                                <img
+                                                    key={url}
+                                                    src={url}
+                                                    alt="Note attachment"
+                                                    loading="lazy"
+                                                    className="h-[72px] w-[72px] rounded-xl object-cover"
+                                                    style={{
+                                                        border: "1px solid var(--border)",
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                     {entry.tags.length > 0 && (
                                         <div className="mt-2.5 flex flex-wrap gap-1.5">
                                             {entry.tags.map((tag) => (
@@ -282,8 +389,8 @@ export function Notes({ userId }: { userId: string }) {
             )}
             <ConfirmDialog
                 open={pendingDelete !== null}
-                title="Delete this entry?"
-                message="The entry will be removed here and in Supabase on next sync. This can't be undone."
+                title="Delete this note?"
+                message="Note will be permanently deleted. This can't be undone."
                 onCancel={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}
             />

@@ -10,6 +10,7 @@ export interface ExportData {
         body: string;
         mood?: string;
         tags: string[];
+        image_urls: string[];
     }[];
     prayers: {
         id: string;
@@ -24,6 +25,7 @@ export interface ExportData {
         date: string;
         reference: string;
         notes: string;
+        image_urls: string[];
         created_at: string;
     }[];
 }
@@ -58,6 +60,7 @@ export async function buildExport(userId: string): Promise<ExportData> {
             body: e.body,
             mood: e.mood,
             tags: e.tags,
+            image_urls: e.image_urls ?? [],
         })),
         prayers: prayers.map((p) => ({
             id: p.remote_id ?? `local-${p.id}`,
@@ -72,6 +75,7 @@ export async function buildExport(userId: string): Promise<ExportData> {
             date: r.date,
             reference: r.reference,
             notes: r.notes,
+            image_urls: r.image_urls ?? [],
             created_at: r.created_at,
         })),
     };

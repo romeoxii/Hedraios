@@ -70,7 +70,12 @@ export function useEntries(userId: string | undefined) {
         return () => window.removeEventListener("online", handleOnline);
     }, [userId, runSync]);
 
-    async function addEntry(body: string, mood: string | undefined, tags: string[]) {
+    async function addEntry(
+        body: string,
+        mood: string | undefined,
+        tags: string[],
+        image_urls: string[] = [],
+    ) {
         if (!userId) return;
         const stamp = nowIso();
         await db.entries.add({
@@ -78,6 +83,7 @@ export function useEntries(userId: string | undefined) {
             body,
             mood,
             tags,
+            image_urls,
             created_at: stamp,
             updated_at: stamp,
             dirty: 1,
@@ -89,7 +95,7 @@ export function useEntries(userId: string | undefined) {
 
     async function updateEntry(
         id: number,
-        patch: { body: string; mood: string | undefined; tags: string[] },
+        patch: { body: string; mood: string | undefined; tags: string[]; image_urls?: string[] },
     ) {
         if (!userId) return;
         await db.entries.update(id, {

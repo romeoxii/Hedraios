@@ -7,6 +7,7 @@ export interface JournalEntry {
     body: string;
     mood?: string;
     tags: string[];
+    image_urls: string[];
     created_at: string;
     updated_at: string;
     dirty: number;
@@ -36,6 +37,7 @@ export interface Reading {
     date: string;
     reference: string;
     notes: string;
+    image_urls: string[];
     created_at: string;
     updated_at: string;
     dirty: number;
@@ -68,6 +70,27 @@ class HedraiosDB extends Dexie {
             prayers: "++id, remote_id, user_id, status, created_at, dirty, deleted",
             readings: "++id, remote_id, user_id, date, dirty, deleted",
         });
+        // v4 adds image attachments to notes + readings. Old rows backfill to [].
+        this.version(4)
+            .stores({
+                entries: "++id, remote_id, user_id, created_at, updated_at, dirty, deleted",
+                prayers: "++id, remote_id, user_id, status, created_at, dirty, deleted",
+                readings: "++id, remote_id, user_id, date, dirty, deleted",
+            })
+            .upgrade((tx) => {
+                return Promise.all([
+                    tx.table("entries").toCollection().modify((e) => {
+                        if (!Array.isArray((e as { image_urls?: unknown }).image_urls)) {
+                            (e as { image_urls: string[] }).image_urls = [];
+                        }
+                    }),
+                    tx.table("readings").toCollection().modify((r) => {
+                        if (!Array.isArray((r as { image_urls?: unknown }).image_urls)) {
+                            (r as { image_urls: string[] }).image_urls = [];
+                        }
+                    }),
+                ]).then(() => undefined);
+            });
     }
 }
 

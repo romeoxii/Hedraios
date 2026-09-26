@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Preview } from "./Preview";
+import { AutoTextarea } from "./AutoTextarea";
 import { usePrayers } from "../hooks/usePrayers";
 import { toast } from "../lib/toast";
 import type { Prayer } from "../lib/db";
@@ -71,30 +72,29 @@ export function Prayers({ userId }: { userId: string }) {
             )}
 
             <form onSubmit={handleSubmit} className="card flex flex-col gap-2">
-                <input
+                <AutoTextarea
+                    rows={2}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Prayer request — e.g. healing for mum"
                     aria-label="Prayer request"
-                    className="field"
+                    className="field field--small"
                 />
-                <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-                    <input
-                        value={detail}
-                        onChange={(e) => setDetail(e.target.value)}
-                        placeholder="Detail (optional)"
-                        aria-label="Detail"
-                        className="field min-w-0 flex-1"
-                        style={{ fontSize: "0.875rem" }}
-                    />
-                    <button
-                        type="submit"
-                        disabled={!title.trim() || saving}
-                        className="btn btn-primary"
-                    >
-                        {saving ? "Saving…" : "Add"}
-                    </button>
-                </div>
+                <AutoTextarea
+                    rows={5}
+                    value={detail}
+                    onChange={(e) => setDetail(e.target.value)}
+                    placeholder="Detail (optional)"
+                    aria-label="Detail"
+                    className="field field--medium"
+                />
+                <button
+                    type="submit"
+                    disabled={!title.trim() || saving}
+                    className="btn btn-primary self-start"
+                >
+                    {saving ? "Saving…" : "Add"}
+                </button>
             </form>
 
             <div className="flex gap-2 text-sm">
@@ -188,7 +188,7 @@ export function Prayers({ userId }: { userId: string }) {
             <ConfirmDialog
                 open={pendingDelete !== null}
                 title="Delete this prayer?"
-                message="The prayer will be removed here and in Supabase on next sync. This can't be undone."
+                message="Prayer will be permanently deleted. This can't be undone."
                 onCancel={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}
             />

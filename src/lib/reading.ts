@@ -7,6 +7,7 @@ export interface ReadingModel {
     dateLabel: string;
     body: string;
     tags: string[];
+    images?: string[];
 }
 
 /** Finds the open note, prayer, or reading. Null when gone (deleted elsewhere). */
@@ -25,6 +26,7 @@ export function resolveReading(
             dateLabel: format(new Date(entry.created_at), "EEEE, MMM d · h:mm a"),
             body: entry.body,
             tags: entry.tags,
+            images: entry.image_urls ?? [],
         };
     }
     if (kind === "prayer") {
@@ -46,6 +48,7 @@ export function resolveReading(
             dateLabel: format(new Date(`${item.date}T12:00:00`), "EEEE, MMM d"),
             body: item.notes || "(No notes written.)",
             tags: [],
+            images: item.image_urls ?? [],
         };
     }
     return null;

@@ -95,12 +95,17 @@ p {
     border-radius: 12px;
     padding: 0.5rem 0.75rem;
     font: inherit;
-    font-size: 1rem;
-    color: var(--text);
+    font-size: 0.875rem;
+    color: #3f3f46;
     outline: none;
     transition:
         border-color 0.15s,
-        box-shadow 0.15s;
+        box-shadow 0.15s,
+        color 0.15s;
+}
+
+:root[data-theme="dark"] .field {
+    color: #d4d4d8;
 }
 
 .field::placeholder {
@@ -112,11 +117,28 @@ p {
 .field:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
+    color: var(--text);
 }
 
 textarea.field {
     resize: none;
-    line-height: 1.55;
+    line-height: 1.6;
+    overflow: hidden;
+}
+
+.field--large {
+    min-height: 10rem;
+    font-size: 0.875rem;
+}
+
+.field--medium {
+    min-height: 8rem;
+    font-size: 0.8125rem;
+}
+
+.field--small {
+    min-height: 3.5rem;
+    font-size: 0.875rem;
 }
 
 /* Small pill buttons. Green means go, red means delete. */
@@ -415,6 +437,9 @@ input[type="date"].field {
 }
 
 .menu-panel .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     justify-content: flex-start;
     border-color: transparent;
     width: 100%;

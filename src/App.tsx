@@ -44,6 +44,24 @@ function TabIcon({ children }: { children: ReactNode }) {
     );
 }
 
+function MenuIcon({ children }: { children: ReactNode }) {
+    return (
+        <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            {children}
+        </svg>
+    );
+}
+
 const TABS: TabDef[] = [
     {
         id: "today",
@@ -157,7 +175,7 @@ function Shell() {
             <header className="flex items-center justify-between gap-3 py-5">
                 <span className="flex items-center gap-2">
                     <span
-                        title={online ? "Online" : "Offline — changes save locally"}
+                        title={online ? "Online" : "Offline, changes save locally"}
                         style={{
                             background: online ? "var(--ok)" : "var(--warn)",
                         }}
@@ -199,7 +217,6 @@ function Shell() {
                     <button
                         type="button"
                         onClick={() => supabase.auth.signOut()}
-                        title={user.email ?? "Sign out"}
                         className="btn btn-sm btn-ghost signout hide-on-mobile"
                     >
                         Sign out
@@ -291,7 +308,12 @@ function Shell() {
                             disabled={exporting}
                             className="btn"
                         >
-                            {exporting ? "Exporting…" : "Export data"}
+                            <MenuIcon>
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                            </MenuIcon>
+                            <span>{exporting ? "Exporting…" : "Export data"}</span>
                         </button>
                         <button
                             type="button"
@@ -299,7 +321,12 @@ function Shell() {
                             onClick={handleSignOut}
                             className="btn btn-ghost signout"
                         >
-                            Sign out
+                            <MenuIcon>
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                                <polyline points="16 17 21 12 16 7" />
+                                <line x1="21" y1="12" x2="9" y2="12" />
+                            </MenuIcon>
+                            <span>Sign out</span>
                         </button>
                     </div>
                 </>

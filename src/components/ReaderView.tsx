@@ -6,6 +6,7 @@ interface ReaderViewProps {
     dateLabel: string;
     body: string;
     tags: string[];
+    images?: string[];
 }
 
 /** Full reading page: back link, big title, date, the whole text, tags. */
@@ -17,6 +18,7 @@ export function ReaderView({
     dateLabel,
     body,
     tags,
+    images = [],
 }: ReaderViewProps) {
     return (
         <article className="flex flex-col py-6">
@@ -59,6 +61,23 @@ export function ReaderView({
             >
                 {body}
             </div>
+            {images.length > 0 && (
+                <div className="mt-6 flex flex-col gap-3">
+                    {images.map((url) => (
+                        <img
+                            key={url}
+                            src={url}
+                            alt="Attachment"
+                            loading="lazy"
+                            className="w-full rounded-2xl object-cover"
+                            style={{
+                                border: "1px solid var(--border)",
+                                maxHeight: "32rem",
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
             {tags.length > 0 && (
                 <div className="mt-6 flex flex-wrap gap-1.5">
                     {tags.map((tag) => (

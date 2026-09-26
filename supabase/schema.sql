@@ -5,6 +5,7 @@ create table if not exists public.entries (
   body text not null default '',
   mood text,
   tags text[] not null default '{}',
+  image_urls text[] not null default '{}',
   created_at timestamptz not null default now()
 );
 
@@ -24,6 +25,7 @@ create table if not exists public.readings (
   date date not null,
   reference text not null,
   notes text not null default '',
+  image_urls text[] not null default '{}',
   created_at timestamptz not null default now()
 );
 
@@ -31,6 +33,10 @@ create table if not exists public.readings (
 create index if not exists entries_user_created_idx on public.entries (user_id, created_at desc);
 create index if not exists prayers_user_status_idx on public.prayers (user_id, status, created_at desc);
 create index if not exists readings_user_date_idx on public.readings (user_id, date desc);
+
+-- Backfills for tables created before image uploads existed.
+alter table public.entries add column if not exists image_urls text[] not null default '{}';
+alter table public.readings add column if not exists image_urls text[] not null default '{}';
 
 -- Row Level Security
 alter table public.entries enable row level security;
@@ -54,3 +60,18 @@ create policy "owner all readings" on public.readings
 grant select, insert, update, delete on public.entries to authenticated;
 grant select, insert, update, delete on public.prayers to authenticated;
 grant select, insert, update, delete on public.readings to authenticated;
+
+-- Image attachments for notes + readings live in one private bucket.
+-- Run once in the Supabase SQL editor (storage schema isn't in local migrations).
+insert into storage.buckets (id, name, public)
+values ('entry-images', 'entry-images', false)
+on conflict (id) do nothing;
+
+drop policy if exists "owners manage entry images" on storage.objects;
+create policy "owners manage entry images" on storage.objects
+  for all to authenticated
+  using (bucket_id = 'entry-images' and auth.uid()::text = (storage.foldername(name))[1])
+  with check (bucket_id = 'entry-images' and auth.uid()::text = (storage.foldername(name))[1]);
+
+
+

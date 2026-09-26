@@ -72,13 +72,12 @@ export function Prayers({ userId }: { userId: string }) {
             )}
 
             <form onSubmit={handleSubmit} className="card flex flex-col gap-2">
-                <AutoTextarea
-                    rows={2}
+                <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Prayer request — e.g. healing for mum"
                     aria-label="Prayer request"
-                    className="field field--small"
+                    className="field"
                 />
                 <AutoTextarea
                     rows={5}

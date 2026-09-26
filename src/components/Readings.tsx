@@ -123,13 +123,7 @@ export function Readings({ userId }: { userId: string }) {
         toast("Reading logged");
     }
 
-    function startEdit(
-        id: number,
-        d: string,
-        ref: string,
-        n: string,
-        image_urls: string[] = [],
-    ) {
+    function startEdit(id: number, d: string, ref: string, n: string, image_urls: string[] = []) {
         setEditingId(id);
         setEditDate(d);
         setEditReference(ref);
@@ -174,14 +168,18 @@ export function Readings({ userId }: { userId: string }) {
 
             <form onSubmit={handleSubmit} className="card flex flex-col gap-2">
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-                    <DatePicker value={date} onChange={setDate} label="Reading date" />
-                    <AutoTextarea
-                        rows={2}
+                    <DatePicker
+                        value={date}
+                        onChange={setDate}
+                        label="Reading date"
+                        className="min-w-0 flex-1"
+                    />
+                    <input
                         value={reference}
                         onChange={(e) => setReference(e.target.value)}
                         placeholder="Reference — e.g. John 1:1-5"
                         aria-label="Scripture reference"
-                        className="field field--small min-w-0 flex-1"
+                        className="field min-w-0 flex-1"
                     />
                 </div>
                 <AutoTextarea
@@ -235,21 +233,21 @@ export function Readings({ userId }: { userId: string }) {
                                     >
                                         {editingId === reading.id ? (
                                             <div className="flex flex-col gap-2">
-                                                <div className="flex gap-2">
+                                                <div className="flex min-w-0 gap-2">
                                                     <DatePicker
                                                         value={editDate}
                                                         onChange={setEditDate}
                                                         label="Reading date"
+                                                        className="min-w-0 flex-1"
                                                     />
-                                                    <AutoTextarea
-                                                        rows={2}
+                                                    <input
                                                         value={editReference}
                                                         onChange={(e) =>
                                                             setEditReference(e.target.value)
                                                         }
                                                         placeholder="Reference"
                                                         aria-label="Scripture reference"
-                                                        className="field field--small flex-1"
+                                                        className="field min-w-0 flex-1"
                                                     />
                                                 </div>
                                                 <AutoTextarea

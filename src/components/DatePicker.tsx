@@ -17,6 +17,8 @@ interface DatePickerProps {
     value: string;
     onChange: (dateKey: string) => void;
     label: string;
+    /** Sizing hook for the trigger wrapper, e.g. "min-w-0 flex-1". */
+    className?: string;
 }
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -27,7 +29,7 @@ function parseKey(key: string): Date {
 }
 
 /** Home-made calendar. The built-in date box breaks out of cards on iPhones. */
-export function DatePicker({ value, onChange, label }: DatePickerProps) {
+export function DatePicker({ value, onChange, label, className = "" }: DatePickerProps) {
     const [shown, setShown] = useState(false);
     const [leaving, setLeaving] = useState(false);
     const [month, setMonth] = useState(() => parseKey(value));
@@ -89,7 +91,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
     }
 
     return (
-        <div style={{ position: "relative" }}>
+        <div className={className} style={{ position: "relative" }}>
             <button
                 type="button"
                 onClick={toggle}
@@ -135,7 +137,8 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
                             position: "absolute",
                             top: "calc(100% + 0.4rem)",
                             left: 0,
-                            right: 0,
+                            width: "min(19rem, calc(100vw - 3rem))",
+                            maxWidth: "100%",
                             zIndex: 50,
                             padding: "0.75rem",
                         }}

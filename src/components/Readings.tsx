@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DatePicker } from "./DatePicker";
@@ -8,6 +9,7 @@ import { Preview } from "./Preview";
 import { AutoTextarea } from "./AutoTextarea";
 import { ImageAttachments } from "./ImageAttachments";
 import { useReadings } from "../hooks/useReadings";
+import { useAutosave, useManualDrafts } from "../hooks/useComposerDraft";
 import { toast } from "../lib/toast";
 import { deleteEntryImage, MAX_IMAGES_PER_ENTRY, uploadEntryImage } from "../lib/images";
 
@@ -40,6 +42,42 @@ export function Readings({ userId }: { userId: string }) {
     const [editNotes, setEditNotes] = useState("");
     const [editImages, setEditImages] = useState<string[]>([]);
     const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+
+    const isReadingEmpty = useCallback(
+        (p: { date: string; reference: string; notes: string }) =>
+            !p.reference.trim() && !p.notes.trim(),
+        [],
+    );
+    const restoreReading = useCallback((p: { date: string; reference: string; notes: string }) => {
+        if (p.date) setDate(p.date);
+        setReference(p.reference);
+        setNotes(p.notes);
+    }, []);
+    const { clearAutosave } = useAutosave(
+        "readings",
+        userId,
+        { date, reference, notes },
+        isReadingEmpty,
+        restoreReading,
+    );
+    const { drafts, saveDraft, deleteDraft } = useManualDrafts<{
+        date: string;
+        reference: string;
+        notes: string;
+    }>("readings", userId);
+
+    function handleSaveDraft() {
+        if (!reference.trim() && !notes.trim()) {
+            toast("Nothing to draft yet");
+            return;
+        }
+        saveDraft({ date, reference, notes });
+        setReference("");
+        setNotes("");
+        setImages([]);
+        clearAutosave();
+        toast("Draft saved");
+    }
 
     const groups = useMemo(() => {
         const map = new Map<string, typeof readings>();
@@ -119,6 +157,7 @@ export function Readings({ userId }: { userId: string }) {
         setReference("");
         setNotes("");
         setImages([]);
+        clearAutosave();
         setSaving(false);
         toast("Reading logged");
     }
@@ -193,6 +232,7 @@ export function Readings({ userId }: { userId: string }) {
                 <ImageAttachments
                     urls={images}
                     uploading={uploading}
+                    disabled={!reference.trim() && !notes.trim()}
                     onSelect={(files) => uploadFiles(files, "new")}
                     onRemove={(url) => removeImage(url, "new")}
                 />
@@ -203,7 +243,57 @@ export function Readings({ userId }: { userId: string }) {
                 >
                     {saving ? "Saving…" : "Log reading"}
                 </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleSaveDraft}
+                        disabled={!reference.trim() && !notes.trim()}
+                        className="btn btn-sm"
+                    >
+                        Save draft
+                    </button>
+                    <span className="meta">Autosaves as you type</span>
+                </div>
             </form>
+
+            {drafts.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <p className="meta">
+                        {drafts.length} draft{drafts.length === 1 ? "" : "s"}
+                    </p>
+                    {drafts.map((d) => (
+                        <div key={d.id} className="card flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate text-sm">
+                                {(d.payload.reference || "Untitled draft").slice(0, 80)}
+                                <span className="meta">
+                                    {" "}
+                                    · {format(new Date(d.savedAt), "MMM d, h:mm a")}
+                                </span>
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    restoreReading(d.payload);
+                                    toast("Draft restored");
+                                }}
+                                className="link-btn link-btn--edit"
+                            >
+                                Restore
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    deleteDraft(d.id);
+                                    toast("Draft deleted");
+                                }}
+                                className="link-btn link-btn--delete"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {loading ? (
                 <p className="meta py-8 text-center">Loading readings…</p>
@@ -333,10 +423,16 @@ export function Readings({ userId }: { userId: string }) {
                                                 </p>
                                                 {reading.notes && (
                                                     <div className="mt-1">
-                                                        <Preview
-                                                            text={reading.notes}
+                                                        <Link
                                                             to={`/read/reading/${reading.id}`}
-                                                        />
+                                                            aria-label="Open full reading"
+                                                            style={{
+                                                                textDecoration: "none",
+                                                                display: "block",
+                                                            }}
+                                                        >
+                                                            <Preview text={reading.notes} />
+                                                        </Link>
                                                     </div>
                                                 )}
                                                 {(reading.image_urls ?? []).length > 0 && (

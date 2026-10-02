@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Preview } from "./Preview";
 import { AutoTextarea } from "./AutoTextarea";
 import { ImageAttachments } from "./ImageAttachments";
 import { useEntries } from "../hooks/useEntries";
+import { useAutosave, useManualDrafts } from "../hooks/useComposerDraft";
 import { toast } from "../lib/toast";
 import { deleteEntryImage, MAX_IMAGES_PER_ENTRY, uploadEntryImage } from "../lib/images";
 
@@ -48,6 +50,46 @@ export function Notes({ userId }: { userId: string }) {
     const [editTags, setEditTags] = useState("");
     const [editImages, setEditImages] = useState<string[]>([]);
     const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+
+    const isComposerEmpty = useCallback(
+        (p: { body: string; mood: string; tagsInput: string }) =>
+            !p.body.trim() && !p.mood.trim() && !p.tagsInput.trim(),
+        [],
+    );
+    const restoreComposer = useCallback(
+        (p: { body: string; mood: string; tagsInput: string }) => {
+            setBody(p.body);
+            setMood(p.mood);
+            setTagsInput(p.tagsInput);
+        },
+        [],
+    );
+    const { clearAutosave } = useAutosave(
+        "notes",
+        userId,
+        { body, mood, tagsInput },
+        isComposerEmpty,
+        restoreComposer,
+    );
+    const { drafts, saveDraft, deleteDraft } = useManualDrafts<{
+        body: string;
+        mood: string;
+        tagsInput: string;
+    }>("notes", userId);
+
+    function handleSaveDraft() {
+        if (!body.trim() && !mood.trim() && !tagsInput.trim()) {
+            toast("Nothing to draft yet");
+            return;
+        }
+        saveDraft({ body, mood, tagsInput });
+        setBody("");
+        setMood("");
+        setTagsInput("");
+        setImages([]);
+        clearAutosave();
+        toast("Draft saved");
+    }
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -134,6 +176,7 @@ export function Notes({ userId }: { userId: string }) {
         setMood("");
         setTagsInput("");
         setImages([]);
+        clearAutosave();
         setSaving(false);
         toast("Entry saved");
     }
@@ -233,13 +276,64 @@ export function Notes({ userId }: { userId: string }) {
                         {saving ? "Saving…" : "Add"}
                     </button>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        onClick={handleSaveDraft}
+                        disabled={!body.trim() && !mood.trim() && !tagsInput.trim()}
+                        className="btn btn-sm"
+                    >
+                        Save draft
+                    </button>
+                    <span className="meta self-center">Autosaves as you type</span>
+                </div>
                 <ImageAttachments
                     urls={images}
                     uploading={uploading}
+                    disabled={!body.trim()}
                     onSelect={(files) => uploadFiles(files, "new")}
                     onRemove={(url) => removeImage(url, "new")}
                 />
             </form>
+
+            {drafts.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <p className="meta">
+                        {drafts.length} draft{drafts.length === 1 ? "" : "s"}
+                    </p>
+                    {drafts.map((d) => (
+                        <div key={d.id} className="card flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate text-sm">
+                                {(d.payload.body.split("\n")[0] || "Untitled draft").slice(0, 80)}
+                                <span className="meta">
+                                    {" "}
+                                    · {format(new Date(d.savedAt), "MMM d, h:mm a")}
+                                </span>
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    restoreComposer(d.payload);
+                                    toast("Draft restored");
+                                }}
+                                className="link-btn link-btn--edit"
+                            >
+                                Restore
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    deleteDraft(d.id);
+                                    toast("Draft deleted");
+                                }}
+                                className="link-btn link-btn--delete"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {loading ? (
                 <p className="meta py-8 text-center">Loading entries…</p>
@@ -354,7 +448,13 @@ export function Notes({ userId }: { userId: string }) {
                                         </p>
                                     )}
                                     <div className="mt-1">
-                                        <Preview text={entry.body} to={`/read/entry/${entry.id}`} />
+                                        <Link
+                                            to={`/read/entry/${entry.id}`}
+                                            aria-label="Open full note"
+                                            style={{ textDecoration: "none", display: "block" }}
+                                        >
+                                            <Preview text={entry.body} />
+                                        </Link>
                                     </div>
                                     {(entry.image_urls ?? []).length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-2">

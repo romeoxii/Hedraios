@@ -45,9 +45,11 @@ export function ReaderView({
             <h1
                 className="section-title mt-2 break-words"
                 style={{
-                    fontSize: "1.75rem",
-                    lineHeight: 1.25,
-                    letterSpacing: "-0.02em",
+                    fontSize: "1.3125rem",
+                    lineHeight: 1.35,
+                    letterSpacing: "-0.01em",
+                    fontWeight: 600,
+                    opacity: 0.92,
                 }}
             >
                 {title}
@@ -55,12 +57,7 @@ export function ReaderView({
             <p className="meta mt-2" style={{ fontSize: "0.8125rem" }}>
                 {dateLabel}
             </p>
-            <div
-                className="body-text mt-6 whitespace-pre-wrap"
-                style={{ fontSize: "1rem", opacity: 1 }}
-            >
-                {body}
-            </div>
+            <div className="body-text mt-5 whitespace-pre-wrap">{body}</div>
             {images.length > 0 && (
                 <div className="mt-6 flex flex-col gap-3">
                     {images.map((url) => (

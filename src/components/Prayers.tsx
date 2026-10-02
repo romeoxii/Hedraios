@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Preview } from "./Preview";
 import { AutoTextarea } from "./AutoTextarea";
 import { usePrayers } from "../hooks/usePrayers";
+import { useAutosave, useManualDrafts } from "../hooks/useComposerDraft";
 import { toast } from "../lib/toast";
 import type { Prayer } from "../lib/db";
 
@@ -20,6 +22,32 @@ export function Prayers({ userId }: { userId: string }) {
     const [filter, setFilter] = useState<Filter>("active");
     const [saving, setSaving] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+
+    const isPrayerEmpty = useCallback(
+        (p: { title: string; detail: string }) => !p.title.trim() && !p.detail.trim(),
+        [],
+    );
+    const restorePrayer = useCallback((p: { title: string; detail: string }) => {
+        setTitle(p.title);
+        setDetail(p.detail);
+    }, []);
+    const { clearAutosave } = useAutosave("prayers", userId, { title, detail }, isPrayerEmpty, restorePrayer);
+    const { drafts, saveDraft, deleteDraft } = useManualDrafts<{
+        title: string;
+        detail: string;
+    }>("prayers", userId);
+
+    function handleSaveDraft() {
+        if (!title.trim() && !detail.trim()) {
+            toast("Nothing to draft yet");
+            return;
+        }
+        saveDraft({ title, detail });
+        setTitle("");
+        setDetail("");
+        clearAutosave();
+        toast("Draft saved");
+    }
 
     const counts = useMemo(
         () => ({
@@ -38,6 +66,7 @@ export function Prayers({ userId }: { userId: string }) {
         await addPrayer(trimmed, detail.trim());
         setTitle("");
         setDetail("");
+        clearAutosave();
         setSaving(false);
         toast("Prayer added");
     }
@@ -94,7 +123,57 @@ export function Prayers({ userId }: { userId: string }) {
                 >
                     {saving ? "Saving…" : "Add"}
                 </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleSaveDraft}
+                        disabled={!title.trim() && !detail.trim()}
+                        className="btn btn-sm"
+                    >
+                        Save draft
+                    </button>
+                    <span className="meta">Autosaves as you type</span>
+                </div>
             </form>
+
+            {drafts.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <p className="meta">
+                        {drafts.length} draft{drafts.length === 1 ? "" : "s"}
+                    </p>
+                    {drafts.map((d) => (
+                        <div key={d.id} className="card flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate text-sm">
+                                {(d.payload.title || "Untitled draft").slice(0, 80)}
+                                <span className="meta">
+                                    {" "}
+                                    · {format(new Date(d.savedAt), "MMM d, h:mm a")}
+                                </span>
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    restorePrayer(d.payload);
+                                    toast("Draft restored");
+                                }}
+                                className="link-btn link-btn--edit"
+                            >
+                                Restore
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    deleteDraft(d.id);
+                                    toast("Draft deleted");
+                                }}
+                                className="link-btn link-btn--delete"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div className="flex gap-2 text-sm">
                 {(["active", "answered"] as Filter[]).map((f) => {
@@ -114,7 +193,7 @@ export function Prayers({ userId }: { userId: string }) {
                                 borderColor: isActive ? "transparent" : "var(--border)",
                             }}
                         >
-                            {f} ({f === "active" ? counts.active : counts.answered})
+                            {f === "active" ? "open" : f} ({f === "active" ? counts.active : counts.answered})
                         </button>
                     );
                 })}
@@ -169,10 +248,13 @@ export function Prayers({ userId }: { userId: string }) {
                             </p>
                             {prayer.detail && (
                                 <div className="mt-1">
-                                    <Preview
-                                        text={prayer.detail}
+                                    <Link
                                         to={`/read/prayer/${prayer.id}`}
-                                    />
+                                        aria-label="Open full prayer"
+                                        style={{ textDecoration: "none", display: "block" }}
+                                    >
+                                        <Preview text={prayer.detail} />
+                                    </Link>
                                 </div>
                             )}
                             {prayer.status === "answered" && prayer.answered_at && (

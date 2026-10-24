@@ -5,7 +5,6 @@ import { ThemeToggle } from "./ThemeToggle";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
-/** Shows j•••@x.com instead of the full address. Recognizable, not exposed. */
 function maskEmail(email: string): string {
     const [local, domain] = email.split("@");
     if (!domain || local.length === 0) return email;
